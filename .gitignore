@@ -1,6 +1,37 @@
+# Virtual environment
 .venv/
+
+# Python cache
 __pycache__/
 *.pyc
+
+# Jupyter
 .ipynb_checkpoints/
-proposed_results/
+
+# ML training outputs
+results/
 baseline_results/
+proposed_results/
+baseline_model_final/
+proposed_model_final/
+proposed_seed_42/
+proposed_seed_123/
+proposed_seed_456/
+
+# Hugging Face / PyTorch model files
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Transformers checkpoints
+checkpoint-*/
+
+# Optimizer / scheduler states
+optimizer.pt
+scheduler.pt
+scaler.pt
+rng_state.pth
+trainer_state.json
+training_args.bin
+
