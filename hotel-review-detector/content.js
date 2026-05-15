@@ -1,8 +1,10 @@
 console.log("CONTENT SCRIPT LOADED");
-
+console.log("Highlight event triggered");
 let lastCall = 0;
 
 document.addEventListener("mouseup", () => {
+
+    console.log("Mouseup detected");
 
     setTimeout(async () => {
 
@@ -11,11 +13,13 @@ document.addEventListener("mouseup", () => {
 
         const text = window.getSelection().toString().trim();
 
+        console.log("Selected text:", text);
+
         if (!text || text.length < 20) return;
 
         lastCall = now;
 
-        console.log("Sending:", text);
+        console.log("Calling API...");
 
         const res = await fetch("http://127.0.0.1:8000/predict", {
             method: "POST",
@@ -25,6 +29,8 @@ document.addEventListener("mouseup", () => {
 
         const data = await res.json();
 
+        console.log("API response:", data);
+
         showResult(data.label, data.confidence, text);
 
     }, 300);
@@ -32,87 +38,85 @@ document.addEventListener("mouseup", () => {
 
 function showResult(label, confidence, text) {
 
-    const old = document.getElementById("ai-result");
+    // remove old popup
+    const old = document.getElementById("ai-popup");
     if (old) old.remove();
 
-    const percent = (confidence * 100).toFixed(2);
-
-    const result = document.createElement("div");
-    result.id = "ai-result";
-
-    result.innerHTML = `
-        <div style="font-size:16px; font-weight:700; letter-spacing:0.3px;">
-            ${label}
-        </div>
-        <div style="font-size:13px; margin-top:4px; opacity:0.95;">
-            Confidence: ${percent}%
-        </div>
-    `;
-
-    // POSITION
-    result.style.position = "absolute";
-    result.style.zIndex = "999999";
-
-    // SIZE (bigger + cleaner)
-    result.style.minWidth = "180px";
-    result.style.padding = "12px 16px";
-    result.style.borderRadius = "14px";
-
-    // FONT (modern feel)
-    result.style.fontFamily = `"Segoe UI", "Inter", "Arial", sans-serif`;
-
-    // TEXT ALIGN
-    result.style.textAlign = "center";
-
-    // SOFT SHADOW (modern card look)
-    result.style.boxShadow = "0 10px 25px rgba(0,0,0,0.18)";
-
-    // BORDER (subtle)
-    result.style.border = "1px solid rgba(255,255,255,0.2)";
-
-    // COLOR + GRADIENT (this is the “nice” part)
-    const intensity = Math.min(1, Math.max(0.5, confidence));
-
-    if (label === "Deceptive") {
-        result.style.background = `linear-gradient(135deg, rgba(231,76,60,${intensity}) 0%, rgba(192,57,43,${intensity}) 100%)`;
-        result.style.color = "white";
-    } else {
-        result.style.background = `linear-gradient(135deg, rgba(46,204,113,${intensity}) 0%, rgba(39,174,96,${intensity}) 100%)`;
-        result.style.color = "white";
-    }
-
-    // START ANIMATION STATE
-    result.style.opacity = "0";
-    result.style.transform = "translateY(12px) scale(0.98)";
-    result.style.transition = "all 0.25s ease";
-
-    document.body.appendChild(result);
-
+    // get selection position
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
 
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    
-    // EXTRA OFFSET (key fix)
-    const offsetY = 70; // pushes box higher so it won't cover text
-    
-    const centerX = rect.left + rect.width / 2;
-    
-    // final position
-    result.style.top = `${window.scrollY + rect.top - offsetY}px`;
-    result.style.left = `${window.scrollX + centerX - result.offsetWidth / 2}px`;
 
-    // TRIGGER ANIMATION
-    requestAnimationFrame(() => {
-        result.style.opacity = "1";
-        result.style.transform = "translateY(0) scale(1)";
-    });
+    // create popup
+    const box = document.createElement("div");
+    box.id = "ai-popup";
 
-    // AUTO REMOVE
-    setTimeout(() => {
-        result.style.opacity = "0";
-        result.style.transform = "translateY(-10px) scale(0.98)";
-        setTimeout(() => result.remove(), 300);
-    }, 3000);
+    // IMPORTANT: absolute positioning relative to page
+    box.style.position = "absolute";
+
+    // ✅ CENTER ABOVE HIGHLIGHT
+    const popupWidth = 320;
+
+    box.style.left = `${window.scrollX + rect.left + rect.width / 2 - popupWidth / 2}px`;
+    box.style.top = `${window.scrollY + rect.top}px`;
+    box.style.transform = "translateY(-110%)";
+
+    box.style.zIndex = "999999";
+
+    // styling
+    box.style.width = `${popupWidth}px`;
+    box.style.padding = "18px";
+    box.style.borderRadius = "14px";
+    box.style.background = "white";
+    box.style.boxShadow = "0 10px 25px rgba(0,0,0,0.2)";
+    box.style.fontFamily = "Segoe UI, sans-serif";
+    box.style.textAlign = "center";
+
+    const color = label === "Deceptive" ? "#e74c3c" : "#2ecc71";
+
+    box.innerHTML = `
+        <div style="
+            font-size:20px;
+            font-weight:700;
+            color:${color};
+            margin-bottom:10px;
+        ">
+            ${label}
+        </div>
+
+        <div style="
+            font-size:15px;
+            margin-bottom:15px;
+        ">
+            Confidence: ${(confidence * 100).toFixed(2)}%
+        </div>
+
+        <button id="view-details-btn"
+            style="
+                padding:10px 14px;
+                border:none;
+                border-radius:8px;
+                background:${color};
+                color:white;
+                font-weight:600;
+                cursor:pointer;
+                width:100%;
+                font-size:14px;
+            ">
+            View Details
+        </button>
+    `;
+
+    document.body.appendChild(box);
+
+    // button action
+    document.getElementById("view-details-btn")
+        .addEventListener("click", () => {
+
+            const url = `http://127.0.0.1:8000/dashboard?label=${label}&confidence=${(confidence * 100).toFixed(2)}`;
+
+            window.open(url, "_blank");
+        });
 }
