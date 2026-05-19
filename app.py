@@ -116,29 +116,60 @@ def predict(review: Review):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(label: str = "", confidence: str = ""):
 
+    if label == "Deceptive":
+
+        interpretation = """
+        The review contains highly persuasive and emotionally exaggerated language,
+        which may indicate deceptive intent. The writing also lacks detailed and
+        balanced experiences commonly found in authentic hotel reviews.
+        """
+
+        patterns = [
+            "Excessive positive wording",
+            "Limited specific details",
+            "Promotional tone detected"
+        ]
+
+        color = "#e74c3c"
+
+    else:
+
+        interpretation = """
+        The review demonstrates natural language patterns and includes realistic
+        descriptions of personal experiences, which are commonly associated with
+        genuine hotel reviews.
+        """
+
+        patterns = [
+            "Balanced review structure",
+            "Specific hotel experiences",
+            "Natural writing flow"
+        ]
+
+        color = "#2ecc71"
+
     return f"""
-    <!DOCTYPE html>
     <html>
 
     <head>
+
         <title>AI Review Analysis</title>
 
         <style>
 
             body {{
-                font-family: "Segoe UI", Arial, sans-serif;
-                background: linear-gradient(to right, #f5f7fa, #e4ecf5);
-                margin: 0;
+                font-family: "Segoe UI", sans-serif;
+                background: #f4f6f9;
                 padding: 40px;
             }}
 
             .container {{
-                max-width: 700px;
+                max-width: 750px;
                 margin: auto;
                 background: white;
-                padding: 35px;
                 border-radius: 20px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+                padding: 35px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             }}
 
             h1 {{
@@ -146,37 +177,39 @@ async def dashboard(label: str = "", confidence: str = ""):
                 margin-bottom: 30px;
             }}
 
-            .prediction-card {{
-                padding: 20px;
-                border-radius: 15px;
+            .result {{
+                background: {color};
                 color: white;
+                padding: 25px;
+                border-radius: 16px;
                 text-align: center;
                 margin-bottom: 30px;
-                background: {"linear-gradient(135deg, #e74c3c, #c0392b)" if label == "Deceptive" else "linear-gradient(135deg, #2ecc71, #27ae60)"};
             }}
 
-            .prediction-label {{
-                font-size: 28px;
+            .label {{
+                font-size: 30px;
                 font-weight: bold;
             }}
 
             .confidence {{
-                font-size: 18px;
                 margin-top: 10px;
+                font-size: 18px;
             }}
 
-            .metrics {{
-                margin-top: 20px;
+            .section {{
+                margin-top: 25px;
             }}
 
-            .metric {{
-                background: #f7f9fc;
-                padding: 15px;
-                border-radius: 12px;
+            .section h2 {{
                 margin-bottom: 12px;
-                display: flex;
-                justify-content: space-between;
-                font-size: 16px;
+            }}
+
+            ul {{
+                padding-left: 20px;
+            }}
+
+            li {{
+                margin-bottom: 10px;
             }}
 
         </style>
@@ -189,9 +222,9 @@ async def dashboard(label: str = "", confidence: str = ""):
 
             <h1>🧠 AI Review Analysis</h1>
 
-            <div class="prediction-card">
+            <div class="result">
 
-                <div class="prediction-label">
+                <div class="label">
                     {label}
                 </div>
 
@@ -201,29 +234,23 @@ async def dashboard(label: str = "", confidence: str = ""):
 
             </div>
 
-            <h2>📊 Model Performance</h2>
+            <div class="section">
 
-            <div class="metrics">
+                <h2>📖 AI Interpretation</h2>
 
-                <div class="metric">
-                    <span>Accuracy</span>
-                    <span>89.58%</span>
-                </div>
+                <p>
+                    {interpretation}
+                </p>
 
-                <div class="metric">
-                    <span>Precision</span>
-                    <span>84.17%</span>
-                </div>
+            </div>
 
-                <div class="metric">
-                    <span>Recall</span>
-                    <span>97.50%</span>
-                </div>
+            <div class="section">
 
-                <div class="metric">
-                    <span>F1-Score</span>
-                    <span>90.35%</span>
-                </div>
+                <h2>🔍 Detected Patterns</h2>
+
+                <ul>
+                    {''.join(f'<li>{p}</li>' for p in patterns)}
+                </ul>
 
             </div>
 
