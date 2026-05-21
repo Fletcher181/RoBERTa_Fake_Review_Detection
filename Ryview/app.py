@@ -270,7 +270,7 @@ async def dashboard(
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ryview &#8212; Analysis Report</title>
+  <title>RyView &#8212; Analysis Report</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
@@ -482,7 +482,7 @@ async def dashboard(
     <header class="header">
       <div class="brand">
         <div class="brand-icon">&#119825;</div>
-        <div class="brand-name">Ryview</div>
+        <div class="brand-name">RyView</div>
       </div>
       <div class="status-pill">
         <div class="pulse"></div>
@@ -525,7 +525,7 @@ async def dashboard(
     </div>
 
     <div class="footer">
-      Powered by <strong>Ryview</strong> &nbsp;&middot;&nbsp;
+      Powered by <strong>RyView</strong> &nbsp;&middot;&nbsp;
       Enhanced RoBERTa for Deceptive Hotel Review Detection
     </div>
 

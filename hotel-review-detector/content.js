@@ -1,10 +1,8 @@
-console.log("CONTENT SCRIPT LOADED");
-console.log("Highlight event triggered");
+console.log("ReviewGuard content script loaded.");
+
 let lastCall = 0;
 
 document.addEventListener("mouseup", () => {
-
-    console.log("Mouseup detected");
 
     setTimeout(async () => {
 
@@ -12,111 +10,165 @@ document.addEventListener("mouseup", () => {
         if (now - lastCall < 2000) return;
 
         const text = window.getSelection().toString().trim();
-
-        console.log("Selected text:", text);
-
         if (!text || text.length < 20) return;
 
         lastCall = now;
 
-        console.log("Calling API...");
+        let data;
 
-        const res = await fetch("http://127.0.0.1:8000/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text })
-        });
+        try {
+            const res = await fetch("http://127.0.0.1:8000/predict", {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify({ text })
+            });
+            data = await res.json();
+        } catch (err) {
+            console.error("ReviewGuard API error:", err);
+            return;
+        }
 
-        const data = await res.json();
-
-        console.log("API response:", data);
-
-        showResult(data.label, data.confidence, text);
+        showPopup(data.label, data.confidence, text, data.token_scores || []);
 
     }, 300);
 });
 
-function showResult(label, confidence, text) {
 
-    // remove old popup
-    const old = document.getElementById("ai-popup");
+function showPopup(label, confidence, text, tokenScores) {
+
+    // Remove existing popup
+    const old = document.getElementById("rg-popup");
     if (old) old.remove();
 
-    // get selection position
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
 
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
+    const rect      = selection.getRangeAt(0).getBoundingClientRect();
+    const popupW    = 300;
+    const isDecep   = label === "Deceptive";
+    const color     = isDecep ? "#FF4D4D" : "#00C48C";
+    const icon      = isDecep ? "⚠" : "✓";
+    const confPct   = (confidence * 100).toFixed(1);
 
-    // create popup
+    // Build mini highlights for popup (top 5 words only)
+    const topWords = [...tokenScores]
+        .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+        .slice(0, 5)
+        .filter(w => w.word.trim());
+
+    const topWordsHTML = topWords.map(w => {
+        const wColor = w.score > 0
+            ? (isDecep ? "#FF4D4D" : "#00C48C")
+            : (isDecep ? "#00C48C" : "#FF4D4D");
+        const arrow = w.score > 0 ? "↑" : "↓";
+        return `<span style="
+            display:inline-flex; align-items:center; gap:4px;
+            background:rgba(255,255,255,0.06);
+            border-radius:999px; padding:3px 10px;
+            font-size:11px; color:#E8EAF0;
+            margin:3px 3px 0 0;
+        ">
+            ${w.word}
+            <span style="color:${wColor};font-weight:700;">${arrow}${Math.abs(w.score).toFixed(2)}</span>
+        </span>`;
+    }).join("");
+
     const box = document.createElement("div");
-    box.id = "ai-popup";
+    box.id = "rg-popup";
 
-    // IMPORTANT: absolute positioning relative to page
-    box.style.position = "absolute";
-
-    // ✅ CENTER ABOVE HIGHLIGHT
-    const popupWidth = 320;
-
-    box.style.left = `${window.scrollX + rect.left + rect.width / 2 - popupWidth / 2}px`;
-    box.style.top = `${window.scrollY + rect.top}px`;
-    box.style.transform = "translateY(-110%)";
-
-    box.style.zIndex = "999999";
-
-    // styling
-    box.style.width = `${popupWidth}px`;
-    box.style.padding = "18px";
-    box.style.borderRadius = "14px";
-    box.style.background = "white";
-    box.style.boxShadow = "0 10px 25px rgba(0,0,0,0.2)";
-    box.style.fontFamily = "Segoe UI, sans-serif";
-    box.style.textAlign = "center";
-
-    const color = label === "Deceptive" ? "#e74c3c" : "#2ecc71";
+    // Position centered above selection
+    box.style.cssText = `
+        position: absolute;
+        left: ${window.scrollX + rect.left + rect.width / 2 - popupW / 2}px;
+        top: ${window.scrollY + rect.top}px;
+        transform: translateY(-110%);
+        z-index: 999999;
+        width: ${popupW}px;
+        background: #13161C;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+        font-family: 'Segoe UI', sans-serif;
+        overflow: hidden;
+    `;
 
     box.innerHTML = `
-        <div style="
-            font-size:20px;
-            font-weight:700;
-            color:${color};
-            margin-bottom:10px;
-        ">
-            ${label}
-        </div>
+        <!-- Top accent bar -->
+        <div style="height:2px;background:linear-gradient(90deg,transparent,${color},transparent);"></div>
 
-        <div style="
-            font-size:15px;
-            margin-bottom:15px;
-        ">
-            Confidence: ${(confidence * 100).toFixed(2)}%
-        </div>
+        <div style="padding:16px 18px;">
 
-        <button id="view-details-btn"
-            style="
-                padding:10px 14px;
-                border:none;
-                border-radius:8px;
+            <!-- Brand row -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-size:12px;font-weight:700;color:#E8EAF0;letter-spacing:-.2px;">
+                    🛡 ReviewGuard
+                </span>
+                <span style="
+                    font-size:11px;font-weight:700;
+                    color:${color};
+                    background:${isDecep ? 'rgba(255,77,77,0.1)' : 'rgba(0,196,140,0.1)'};
+                    border:1px solid ${color};
+                    border-radius:999px;
+                    padding:2px 10px;
+                ">${icon} ${label}</span>
+            </div>
+
+            <!-- Confidence bar -->
+            <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#6B7080;margin-bottom:5px;">
+                    <span>Confidence</span>
+                    <span style="color:${color};font-weight:700;">${confPct}%</span>
+                </div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:999px;height:5px;overflow:hidden;">
+                    <div style="
+                        width:${confPct}%;
+                        height:100%;
+                        background:${color};
+                        border-radius:999px;
+                        transition:width .6s ease;
+                    "></div>
+                </div>
+            </div>
+
+            <!-- Top words -->
+            ${topWordsHTML ? `
+            <div style="margin-bottom:14px;">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#6B7080;margin-bottom:6px;">
+                    Key influencing words
+                </div>
+                <div>${topWordsHTML}</div>
+            </div>` : ''}
+
+            <!-- View Details button -->
+            <button id="rg-details-btn" style="
+                width:100%; padding:9px;
+                border:none; border-radius:9px;
                 background:${color};
-                color:white;
-                font-weight:600;
-                cursor:pointer;
-                width:100%;
-                font-size:14px;
+                color:white; font-weight:600;
+                font-size:13px; cursor:pointer;
+                font-family:inherit;
             ">
-            View Details
-        </button>
+                View Full Explanation →
+            </button>
+
+        </div>
     `;
 
     document.body.appendChild(box);
 
-    // button action
-    document.getElementById("view-details-btn")
-        .addEventListener("click", () => {
-
-            const url = `http://127.0.0.1:8000/dashboard?label=${label}&confidence=${(confidence * 100).toFixed(2)}`;
-
-            window.open(url, "_blank");
+    // Pass text + token scores to dashboard
+    document.getElementById("rg-details-btn").addEventListener("click", () => {
+        const params = new URLSearchParams({
+            label:        label,
+            confidence:   confPct,
+            text:         text,
+            token_scores: JSON.stringify(tokenScores)
         });
+        window.open(`http://127.0.0.1:8000/dashboard?${params.toString()}`, "_blank");
+    });
+
+    // Auto-dismiss after 12 seconds
+    setTimeout(() => {
+        if (document.getElementById("rg-popup")) box.remove();
+    }, 12000);
 }
