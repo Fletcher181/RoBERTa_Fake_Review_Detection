@@ -4,32 +4,32 @@
  * verdict, confidence bar, word saliency, and View Details button.
  */
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "http://127.0.0.1:8001";
 
 // ── Color palette (dark purple) ──────────────────────────────────────────────
 const PALETTE = {
-  bg:          "#110D1A",
-  surface:     "#1C1628",
-  surface2:    "#241E33",
-  border:      "rgba(255,255,255,0.08)",
-  text:        "#EAE6F0",
-  muted:       "#7A7290",
-  accent:      "#9B6DFF",
-  accentSoft:  "rgba(155,109,255,0.12)",
-  deceptive:   "#F0527A",
+  bg: "#110D1A",
+  surface: "#1C1628",
+  surface2: "#241E33",
+  border: "rgba(255,255,255,0.08)",
+  text: "#EAE6F0",
+  muted: "#7A7290",
+  accent: "#9B6DFF",
+  accentSoft: "rgba(155,109,255,0.12)",
+  deceptive: "#F0527A",
   deceptiveBg: "rgba(240,82,122,0.10)",
-  genuine:     "#52C9A0",
-  genuineBg:   "rgba(82,201,160,0.10)",
+  genuine: "#52C9A0",
+  genuineBg: "rgba(82,201,160,0.10)",
 };
 
-let lastCall  = 0;
+let lastCall = 0;
 let activePopup = null;
 
 // ── Listen for text selection ─────────────────────────────────────────────────
 document.addEventListener("mouseup", () => {
   setTimeout(async () => {
 
-    const now  = Date.now();
+    const now = Date.now();
     if (now - lastCall < 1500) return;
 
     const text = window.getSelection()?.toString().trim();
@@ -43,14 +43,29 @@ document.addEventListener("mouseup", () => {
     showLoading(rect);
 
     try {
-      const res  = await fetch(`${API_BASE}/predict`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ text })
+      // Route the API call through the extension background worker to avoid
+      // mixed-content and extension-blocking issues on HTTPS pages.
+      const data = await new Promise((resolve, reject) => {
+        try {
+          chrome.runtime.sendMessage(
+            { type: 'predict', payload: { text } },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+              } else {
+                resolve(response);
+              }
+            }
+          );
+        } catch (e) {
+          reject(e);
+        }
       });
-      const data = await res.json();
+      if (!data) throw new Error('No response');
+      if (data && data.error) throw new Error(data.error);
       showResult(data, text, rect);
-    } catch {
+    } catch (err) {
+      console.error('ReviewGuard API error:', err);
       showError(rect);
     }
 
@@ -67,20 +82,19 @@ document.addEventListener("mousedown", e => {
 
 // ── Position helper ───────────────────────────────────────────────────────────
 function positionPopup(el, rect) {
-  const W       = 310;
+  const W = 310;
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
-  const vpW     = window.innerWidth;
+  const vpW = window.innerWidth;
 
   let left = scrollX + rect.left + rect.width / 2 - W / 2;
-  let top  = scrollY + rect.top;
+  let top = scrollY + rect.top;
 
-  // Clamp horizontally
-  if (left < scrollX + 8)       left = scrollX + 8;
+  if (left < scrollX + 8) left = scrollX + 8;
   if (left + W > scrollX + vpW - 8) left = scrollX + vpW - W - 8;
 
-  el.style.left      = `${left}px`;
-  el.style.top       = `${top}px`;
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
   el.style.transform = "translateY(-108%)";
 }
 
@@ -103,7 +117,6 @@ function createShell() {
     animation: rvFadeUp .22s ease both;
   `;
 
-  // Keyframes injected once
   if (!document.getElementById("rv-keyframes")) {
     const style = document.createElement("style");
     style.id = "rv-keyframes";
@@ -157,7 +170,7 @@ function showError(rect) {
       <div style="font-size:13px;font-weight:600;color:#F0527A;">API not reachable</div>
       <div style="font-size:12px;color:${PALETTE.muted};margin-top:4px;">
         Make sure the server is running at<br/>
-        <code style="color:${PALETTE.accent};font-size:11px;">http://127.0.0.1:8000</code>
+        <code style="color:${PALETTE.accent};font-size:11px;">http://127.0.0.1:8001</code>
       </div>
     </div>
   `;
@@ -169,21 +182,21 @@ function buildHighlightedText(tokenScores, isDeceptive) {
   if (!tokenScores || tokenScores.length === 0) return "";
 
   return tokenScores.map(w => {
-    const word  = w.word.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const word = w.word.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const score = w.score;
-    const abs   = Math.abs(score);
+    const abs = Math.abs(score);
     if (abs < 0.15) return word + " ";
 
     const positive = score > 0;
     let cls = "";
     if (positive) {
       cls = abs > 0.5
-        ? (isDeceptive ? "rv-word-high-decep"   : "rv-word-high-genuine")
-        : (isDeceptive ? "rv-word-med-decep"    : "rv-word-med-genuine");
+        ? (isDeceptive ? "rv-word-high-decep" : "rv-word-high-genuine")
+        : (isDeceptive ? "rv-word-med-decep" : "rv-word-med-genuine");
     } else {
       cls = abs > 0.5
         ? (isDeceptive ? "rv-word-high-genuine" : "rv-word-high-decep")
-        : (isDeceptive ? "rv-word-med-genuine"  : "rv-word-med-decep");
+        : (isDeceptive ? "rv-word-med-genuine" : "rv-word-med-decep");
     }
     return `<span class="${cls}" title="${score.toFixed(3)}">${word}</span> `;
   }).join("");
@@ -199,11 +212,12 @@ function buildTopWords(tokenScores, isDeceptive) {
     .slice(0, 6);
 
   return top.map(w => {
-    const isPos  = w.score > 0;
-    const color  = isPos
+    const isPos = w.score > 0;
+    const color = isPos
       ? (isDeceptive ? PALETTE.deceptive : PALETTE.genuine)
-      : (isDeceptive ? PALETTE.genuine   : PALETTE.deceptive);
-    const arrow  = isPos ? "↑" : "↓";
+      : (isDeceptive ? PALETTE.genuine : PALETTE.deceptive);
+    const arrow = isPos ? "↑" : "↓";
+    const direction = isPos ? "Toward" : "Against";
     return `<span style="
       display:inline-flex;align-items:center;gap:4px;
       background:${PALETTE.surface2};
@@ -212,7 +226,7 @@ function buildTopWords(tokenScores, isDeceptive) {
       padding:3px 10px;
       font-size:11px;color:${PALETTE.text};
       margin:3px 3px 0 0;
-    ">${w.word}<span style="color:${color};font-weight:700;">${arrow}${Math.abs(w.score).toFixed(2)}</span></span>`;
+    ">${w.word}<span style="color:${color};font-weight:700;" title="${direction} ${isDeceptive ? 'Deceptive' : 'Genuine'}">${direction} · ${arrow}${Math.abs(w.score).toFixed(2)}</span></span>`;
   }).join("");
 }
 
@@ -220,14 +234,14 @@ function buildTopWords(tokenScores, isDeceptive) {
 function showResult(data, text, rect) {
   const { label, confidence, token_scores } = data;
   const isDeceptive = label === "Deceptive";
-  const confPct     = (confidence * 100).toFixed(1);
+  const confPct = (confidence * 100).toFixed(1);
   const verdictColor = isDeceptive ? PALETTE.deceptive : PALETTE.genuine;
-  const verdictBg    = isDeceptive ? PALETTE.deceptiveBg : PALETTE.genuineBg;
-  const icon         = isDeceptive ? "⚠" : "✓";
-  const confOffset   = 188.5 * (1 - confidence);
+  const verdictBg = isDeceptive ? PALETTE.deceptiveBg : PALETTE.genuineBg;
+  const icon = isDeceptive ? "⚠" : "✓";
+  const confOffset = 188.5 * (1 - confidence);
 
   const highlightedHTML = buildHighlightedText(token_scores, isDeceptive);
-  const topWordsHTML    = buildTopWords(token_scores, isDeceptive);
+  const topWordsHTML = buildTopWords(token_scores, isDeceptive);
 
   const box = createShell();
   box.innerHTML = `
@@ -294,8 +308,8 @@ function showResult(data, text, rect) {
         <div style="font-size:20px;font-weight:800;color:${verdictColor};letter-spacing:-.5px;line-height:1;">${label}</div>
         <div style="font-size:12px;color:${PALETTE.muted};margin-top:5px;line-height:1.5;">
           ${isDeceptive
-            ? "Linguistic patterns suggest this review may be deceptive."
-            : "Linguistic patterns are consistent with a genuine review."}
+      ? "The model sees language patterns that lean toward a deceptive review."
+      : "The model sees language patterns that lean toward a genuine review."}
         </div>
       </div>
     </div>
@@ -305,6 +319,9 @@ function showResult(data, text, rect) {
     <div style="padding:14px 18px;border-bottom:1px solid ${PALETTE.border};">
       <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:${PALETTE.muted};margin-bottom:8px;">
         Word influence
+      </div>
+      <div style="font-size:11px;color:${PALETTE.muted};margin-bottom:8px;line-height:1.45;">
+        Green means the token helped this verdict. Red means it pushed against it.
       </div>
       <div style="font-size:12.5px;line-height:1.8;color:${PALETTE.text};max-height:90px;overflow-y:auto;">
         ${highlightedHTML}
@@ -332,7 +349,7 @@ function showResult(data, text, rect) {
 
     <!-- Footer -->
     <div style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-size:11px;color:${PALETTE.muted};">Enhanced RoBERTa · 89.58% acc</span>
+      <span style="font-size:11px;color:${PALETTE.muted};">Enhanced RoBERTa · 89.58% accuracy</span>
       <button id="rv-details-btn" style="
         padding:7px 14px;
         background:${PALETTE.accent};
@@ -346,11 +363,11 @@ function showResult(data, text, rect) {
 
   positionPopup(box, rect);
 
-  // Full dashboard
+  // Full dashboard — passes confidence as a plain percentage number
   box.querySelector("#rv-details-btn").addEventListener("click", () => {
     const params = new URLSearchParams({
       label,
-      confidence:   confPct,
+      confidence: confPct,          // e.g. "87.4"  (no % sign, already ×100)
       text,
       token_scores: JSON.stringify(token_scores || [])
     });
