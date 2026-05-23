@@ -8,8 +8,13 @@ document.getElementById("check").addEventListener("click", async () => {
             tabs[0].id,
             { action: "GET_SELECTED_TEXT" },
             async (response) => {
+                const error = chrome.runtime.lastError;
+                if (error) {
+                    document.getElementById("result").innerText = error.message;
+                    return;
+                }
 
-                const reviewText = response.text;
+                const reviewText = response?.text || "";
 
                 if (!reviewText) {
                     document.getElementById("result").innerText =
@@ -17,18 +22,25 @@ document.getElementById("check").addEventListener("click", async () => {
                     return;
                 }
 
-                const res = await fetch("http://127.0.0.1:8000/predict", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ text: reviewText })
-                });
+                chrome.runtime.sendMessage(
+                    { action: "PREDICT_REVIEW", text: reviewText },
+                    (predictionResponse) => {
+                        const predictionError = chrome.runtime.lastError;
+                        if (predictionError) {
+                            document.getElementById("result").innerText = predictionError.message;
+                            return;
+                        }
 
-                const data = await res.json();
+                        if (!predictionResponse?.ok) {
+                            document.getElementById("result").innerText =
+                                predictionResponse?.error || "Prediction failed.";
+                            return;
+                        }
 
-                document.getElementById("result").innerText =
-                    "Prediction: " + data.label;
+                        document.getElementById("result").innerText =
+                            "Prediction: " + predictionResponse.data.label;
+                    }
+                );
             }
         );
     });

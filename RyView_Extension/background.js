@@ -14,30 +14,28 @@ async function proxyPredict(text) {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    // Support both our earlier `{ type: 'predict', payload: { text } }` shape
-    // and the current content script `{ action: 'PREDICT_REVIEW', text }
     try {
         if (!msg) {
-            sendResponse({ ok: false, error: 'Empty message' });
+            sendResponse({ error: 'Empty message' });
             return;
         }
 
         if (msg.type === 'predict' && msg.payload && msg.payload.text) {
             proxyPredict(msg.payload.text)
-                .then(data => sendResponse({ ok: true, data }))
-                .catch(err => sendResponse({ ok: false, error: String(err) }));
+                .then(data => sendResponse(data))
+                .catch(err => sendResponse({ error: String(err) }));
             return true;
         }
 
         if (msg.action === 'PREDICT_REVIEW' && msg.text) {
             proxyPredict(msg.text)
-                .then(data => sendResponse({ ok: true, data }))
-                .catch(err => sendResponse({ ok: false, error: String(err) }));
+                .then(data => sendResponse(data))
+                .catch(err => sendResponse({ error: String(err) }));
             return true;
         }
 
-        sendResponse({ ok: false, error: 'Unknown message format' });
+        sendResponse({ error: 'Unknown message format' });
     } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
+        sendResponse({ error: String(e) });
     }
 });

@@ -182,8 +182,22 @@ async def dashboard(
     text:         str = "",
     token_scores: str = ""
 ):
-    import json, urllib.parse, re
+    import json, urllib.parse, re, html
 
+    # Clean up common mangled Unicode characters
+    text = (text
+        .replace('âĢĻ', "'")
+        .replace('âĢĶ', '-')
+        .replace('âĢĳ', '-')
+        .replace('Ċ', ' ')
+        .replace('â€™', "'")
+        .replace('â€œ', '"')
+        .replace('â€', '"')
+        .replace('â€"', '-')
+        .replace('â€"', '-')
+    )
+    safe_text = html.escape(text)
+    
     is_deceptive  = label == "Deceptive"
     verdict_color = "#F0527A" if is_deceptive else "#52C9A0"
     verdict_bg    = "rgba(240,82,122,0.10)" if is_deceptive else "rgba(82,201,160,0.10)"
@@ -221,13 +235,25 @@ async def dashboard(
     if tokens_data:
         for w in tokens_data:
             style = score_to_style(w["score"])
-            word  = w["word"].replace("<", "&lt;").replace(">", "&gt;")
+            word = (w["word"]
+                .replace('âĢĻ', "'")
+                .replace('âĢĶ', '-')
+                .replace('âĢĳ', '-')
+                .replace('Ċ', ' ')
+                .replace('â€™', "'")
+                .replace('â€œ', '"')
+                .replace('â€', '"')
+                .replace('â€"', '-')
+                .replace('â€"', '-')
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+            )
             if style:
                 highlighted_html += f'<span style="{style}" title="Score: {w["score"]:.3f}">{word}</span> '
             else:
                 highlighted_html += f'{word} '
     elif text:
-        highlighted_html = text
+        highlighted_html = safe_text
 
     # ── Top influential words pills ───────────────────────────────────────────
     top_words = sorted(tokens_data, key=lambda x: abs(x["score"]), reverse=True)
@@ -236,7 +262,17 @@ async def dashboard(
     top_words_html = ""
     for w in top_words:
         is_pos   = w["score"] > 0
-        disp     = w.get("display_word", w["word"])
+        disp = (w.get("display_word", w["word"])
+            .replace('âĢĻ', "'")
+            .replace('âĢĶ', '-')
+            .replace('âĢĳ', '-')
+            .replace('Ċ', ' ')
+            .replace('â€™', "'")
+            .replace('â€œ', '"')
+            .replace('â€', '"')
+            .replace('â€"', '-')
+            .replace('â€"', '-')
+        )
         color    = verdict_color if is_pos else against_color
         bg       = (
             "rgba(240,82,122,0.10)" if (is_pos and is_deceptive) else

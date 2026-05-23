@@ -2,6 +2,36 @@ console.log("ReviewGuard content script loaded.");
 
 let lastCall = 0;
 
+function predictReview(text) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+            { action: "PREDICT_REVIEW", text },
+            (response) => {
+                const error = chrome.runtime.lastError;
+                if (error) {
+                    reject(new Error(error.message));
+                    return;
+                }
+
+                if (!response?.ok) {
+                    reject(new Error(response?.error || "Unknown API error"));
+                    return;
+                }
+
+                resolve(response.data);
+            }
+        );
+    });
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.action !== "GET_SELECTED_TEXT") {
+        return;
+    }
+
+    sendResponse({ text: window.getSelection().toString().trim() });
+});
+
 document.addEventListener("mouseup", () => {
 
     setTimeout(async () => {
@@ -9,26 +39,19 @@ document.addEventListener("mouseup", () => {
         const now = Date.now();
         if (now - lastCall < 2000) return;
 
-        const text = window.getSelection().toString().trim();
+        const raw = window.getSelection()?.toString().trim();
+        const text = raw.normalize('NFC');
         if (!text || text.length < 20) return;
 
         lastCall = now;
 
-        let data;
-
         try {
-            const res = await fetch("http://127.0.0.1:8000/predict", {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ text })
-            });
-            data = await res.json();
+            const data = await predictReview(text);
+            showPopup(data.label, data.confidence, text, data.token_scores || []);
         } catch (err) {
             console.error("ReviewGuard API error:", err);
             return;
         }
-
-        showPopup(data.label, data.confidence, text, data.token_scores || []);
 
     }, 300);
 });
@@ -43,12 +66,12 @@ function showPopup(label, confidence, text, tokenScores) {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
 
-    const rect      = selection.getRangeAt(0).getBoundingClientRect();
-    const popupW    = 300;
-    const isDecep   = label === "Deceptive";
-    const color     = isDecep ? "#FF4D4D" : "#00C48C";
-    const icon      = isDecep ? "⚠" : "✓";
-    const confPct   = (confidence * 100).toFixed(1);
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    const popupW = 300;
+    const isDecep = label === "Deceptive";
+    const color = isDecep ? "#FF4D4D" : "#00C48C";
+    const icon = isDecep ? "⚠" : "✓";
+    const confPct = (confidence * 100).toFixed(1);
 
     // Build mini highlights for popup (top 5 words only)
     const topWords = [...tokenScores]
@@ -159,12 +182,12 @@ function showPopup(label, confidence, text, tokenScores) {
     // Pass text + token scores to dashboard
     document.getElementById("rg-details-btn").addEventListener("click", () => {
         const params = new URLSearchParams({
-            label:        label,
-            confidence:   confPct,
-            text:         text,
+            label: label,
+            confidence: confPct,
             token_scores: JSON.stringify(tokenScores)
         });
-        window.open(`http://127.0.0.1:8000/dashboard?${params.toString()}`, "_blank");
+        const url = `http://127.0.0.1:8001/dashboard?${params.toString()}&text=${encodeURIComponent(text)}`;
+        window.open(url, "_blank");
     });
 
     // Auto-dismiss after 12 seconds
