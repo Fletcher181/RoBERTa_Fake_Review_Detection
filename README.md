@@ -66,31 +66,31 @@ The proposed model reduced undetected deceptive reviews by **50%**, lowering fal
 
 ### Baseline Conceptual Framework
 
-![`Figure 1. Baseline Conceptual Framework`](readme_files/Baseline Conceptual Framework.png)
+![`Figure 1. Baseline Conceptual Framework`](readme_files/Baseline%20Conceptual%20Framework.png)
 
 ### Proposed Conceptual Framework
 
-![`Figure 2. Proposed Conceptual Framework`](readme_files/Proposed Conceptual Framework.png)
+![`Figure 2. Proposed Conceptual Framework`](readme_files/Proposed%20Conceptual%20Framework.png)
 
 ### Baseline Training vs Validation Loss
 
-![`Figure 3. Train vs Validation Loss Graph (Baseline)`](readme_files/Train vs Validation Loss Graph (Baseline).png)
+![`Figure 3. Train vs Validation Loss Graph (Baseline)`](readme_files/Train%20vs%20Validation%20Loss%20Graph%20(Baseline).png)
 
 ### Proposed Training vs Validation Loss
 
-![`Figure 4. Train vs Validation Loss Graph (Proposed)`](readme_files/Train vs Validation Loss Graph (Proposed).png)
+![`Figure 4. Train vs Validation Loss Graph (Proposed)`](readme_files/Train%20vs%20Validation%20Loss%20Graph%20(Proposed).png)
 
 ### Baseline Confusion Matrix
 
-![`Figure 5. Baseline Confusion Matrix`](readme_files/Baseline Confusion Matrix.png)
+![`Figure 5. Baseline Confusion Matrix`](readme_files/Baseline%20Confusion%20Matrix.png)
 
 ### Proposed Confusion Matrix
 
-![`Figure 6. Proposed Confusion Matrix`](readme_files/Proposed Confusion Matrix`.png)
+![`Figure 6. Proposed Confusion Matrix`](readme_files/Proposed%20Confusion%20Matrix.png)
 
 ### Baseline vs Proposed Performance Comparison
 
-![`Figure 7. Baseline vs Proposed Performance Comparison`](readme_files/Baseline vs Proposed Performance Comparison.png)
+![`Figure 7. Baseline vs Proposed Performance Comparison`](readme_files/Baseline%20vs%20Proposed%20Performance%20Comparison.png)
 
 ---
 
